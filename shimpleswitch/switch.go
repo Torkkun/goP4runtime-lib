@@ -12,8 +12,12 @@ import (
 
 const MSG_LOG_MAX_LEN = 1024
 
-func ShutdownAllSwitchConnections() {
+var connections []*SwitchConnection
 
+func ShutdownAllSwitchConnections() {
+	for _, c := range connections {
+		c.Shutdown()
+	}
 }
 
 type SwitchConnection struct {
@@ -54,11 +58,14 @@ func NewSwitchConnection(name string, address string, deviceid uint64, protodump
 	}
 	newswcon.RequestStream = requestStream
 	newswcon.ProtoDumpFile = protodumpfile
+	if connections == nil {
+		connections = make([]*SwitchConnection, 0)
+	}
+	connections = append(connections, newswcon)
 	return *newswcon
 }
 
 func (swcon *SwitchConnection) Shutdown() {
-	//いらないかも知れない
 	if err := swcon.Channel.Close(); err != nil {
 		log.Printf("channel close shutdownfunc error : %v", err)
 	}
@@ -83,7 +90,6 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate(dryrun bool, opt ...inter
 	if dryrun {
 		fmt.Printf("P4Runtime MasterArbitrationUpdate: %d", request)
 	} else {
-		//swcon.RequestsStream.Push(request)
 		// TODO: return value
 		if err := swcon.RequestStream.Send(&request); err != nil {
 			log.Fatalln("MasterArbitrationUpdate channel send error: %v", err)
@@ -94,4 +100,8 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate(dryrun bool, opt ...inter
 		}
 		swcon.StreamMsgResp = streamMsgResp
 	}
+}
+
+func (swcon *SwitchConnection) SetForwardingPipelineConfig() {
+
 }
