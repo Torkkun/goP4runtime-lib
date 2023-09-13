@@ -1,7 +1,8 @@
-package utils
+package helper
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"net"
 	"regexp"
@@ -13,16 +14,16 @@ const (
 	ipPattern  = `^(\d{1,3}\.){3}(\d{1,3})$`
 )
 
-func matchesMac(macAddr string) (bool, error) {
+func matchesMac(macAddr string) bool {
 	macPattern, err := regexp.Compile(macPattern)
 	if err != nil {
-		err = fmt.Errorf("matchesMac function err: %v", err)
-		return false, err
+		log.Fatalf("matchesMac function faital: %v\n", err)
+
 	}
-	return macPattern.MatchString(macAddr), nil
+	return macPattern.MatchString(macAddr)
 }
 
-func encodeMac(macAddr string) (net.HardwareAddr, error) {
+func encodeMac(macAddr string) ([]byte, error) {
 	return net.ParseMAC(macAddr)
 }
 
@@ -30,15 +31,15 @@ func decodeMac(encodedMacAddr net.HardwareAddr) string {
 	return encodedMacAddr.String()
 }
 
-func matchIPv4(ipv4Addr string) (bool, error) {
+func matchesIPv4(ipv4Addr string) bool {
 	ipPattern, err := regexp.Compile(ipPattern)
 	if err != nil {
-		return false, err
+		log.Fatalf("matchesIPv4 function faital: %v\n", err)
 	}
-	return ipPattern.MatchString(ipv4Addr), nil
+	return ipPattern.MatchString(ipv4Addr)
 }
 
-func encodeIPv4(ipv4Addr string) net.IP {
+func encodeIPv4(ipv4Addr string) []byte {
 	return net.ParseIP(ipv4Addr)
 }
 
@@ -46,7 +47,9 @@ func decodeIPv4(encodedIpv4Addr net.IP) string {
 	return encodedIpv4Addr.String()
 }
 
-func bitwidthToBytes(bitwidth int) int {
+// bit to byte length conversion
+// セグフォしそうなので一応注意
+func bitwidthToBytes(bitwidth int32) int {
 	return int(math.Ceil(float64(bitwidth) / 8.0))
 }
 
@@ -77,6 +80,24 @@ func decodeNum() int {
 	return 0
 }
 
-func encode() {
-
+func encode(x interface{}, bitwidth int32) ([]byte, error) {
+	var encodedbytes []byte
+	var err error
+	switch v := x.(type) {
+	case string:
+		if matchesMac(v) {
+			encodedbytes, err = encodeMac(v)
+			return nil, err
+		} else if matchesIPv4(v) {
+			encodedbytes = encodeIPv4(v)
+		} else {
+			encodedbytes = []byte(v)
+		}
+	case uint32:
+		encodedbytes[0] = byte(v)
+	}
+	if len(encodedbytes) == bitwidthToBytes(bitwidth) {
+		return nil, fmt.Errorf("Faital encode function: Not equal encodedbytes and converted bitwidth length\n")
+	}
+	return encodedbytes, nil
 }
