@@ -2,9 +2,9 @@ package simpleswitch
 
 import (
 	"context"
-	"fmt"
 	"log"
 
+	v1conf "github.com/p4lang/p4runtime/go/p4/config/v1"
 	v1 "github.com/p4lang/p4runtime/go/p4/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -26,11 +26,9 @@ type SwitchConnection struct {
 	DeviceId      uint64
 	ProtoDumpFile string
 	Channel       *grpc.ClientConn
-	Client        *v1.P4RuntimeClient
+	Client        v1.P4RuntimeClient
 	RequestStream v1.P4Runtime_StreamChannelClient
 	StreamMsgResp *v1.StreamMessageResponse
-
-	request *v1.StreamMessageRequest
 }
 
 func NewSwitchConnection(name string, address string, deviceid uint64, protodumpfile string) SwitchConnection {
@@ -53,7 +51,7 @@ func NewSwitchConnection(name string, address string, deviceid uint64, protodump
 		//TODO:Intercept Client
 	}*/
 	client := v1.NewP4RuntimeClient(conn)
-	newswcon.Client = &client
+	newswcon.Client = client
 	requestStream, err := client.StreamChannel(context.Background())
 	if err != nil {
 		log.Fatalf("Request Stream Channel faital error: %v", err)
@@ -76,29 +74,7 @@ func (swcon *SwitchConnection) Shutdown() {
 	}
 }
 
-type SwOptions func(*SwitchConnection)
-
-func IsDryRun(b bool) SwOptions {
-	return func(swcon *SwitchConnection) {
-		if b {
-			fmt.Printf("P4Runtime MasterArbitrationUpdate: %d", swcon.request)
-		} else {
-			// TODO: return value
-			if err := swcon.RequestStream.Send(swcon.request); err != nil {
-				log.Fatalln("MasterArbitrationUpdate channel send error: %v", err)
-			}
-			streamMsgResp, err := swcon.RequestStream.Recv()
-			if err != nil {
-				log.Fatalln("MasterArbitrationUpdate channel recv error: %v", err)
-			}
-			swcon.StreamMsgResp = streamMsgResp
-		}
-	}
-
-}
-
-// option is not funcationable
-func (swcon *SwitchConnection) MasterArbitrationUpdate(opts ...SwOptions) {
+func (swcon *SwitchConnection) MasterArbitrationUpdate() {
 	request := &v1.StreamMessageRequest{
 		Update: &v1.StreamMessageRequest_Arbitration{
 			Arbitration: &v1.MasterArbitrationUpdate{
@@ -110,12 +86,72 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate(opts ...SwOptions) {
 			},
 		},
 	}
-	swcon.request = request
-	for _, o := range opts {
-		o(swcon)
+
+	// TODO: return value
+	if err := swcon.RequestStream.Send(request); err != nil {
+		log.Fatalf("MasterArbitrationUpdate channel send error: %v", err)
 	}
+	streamMsgResp, err := swcon.RequestStream.Recv()
+	if err != nil {
+		log.Fatalf("MasterArbitrationUpdate channel recv error: %v", err)
+	}
+	swcon.StreamMsgResp = streamMsgResp
 }
 
-func (swcon *SwitchConnection) SetForwardingPipelineConfig() {
+func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info, bmv2jpath string) {
 
 }
+
+func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
+	request := new(v1.WriteRequest)
+	request.DeviceId = swcon.DeviceId
+	request.ElectionId.Low = 1
+	newupdate := new(v1.Update)
+	if te.IsDefaultAction {
+		newupdate.Type = v1.Update_MODIFY
+	} else {
+		newupdate.Type = v1.Update_INSERT
+	}
+	newupdate.Entity.Entity = &v1.Entity_TableEntry{
+		TableEntry: te,
+	}
+	request.Updates = append(request.Updates, newupdate)
+	swcon.Client.Write(context.Background(), request)
+}
+
+func (swcon *SwitchConnection) ReadTableEntry(tid uint32) {
+
+}
+
+// dry runいらない？？
+func (swcon *SwitchConnection) ReadCouter(cnterid uint32, index int64) (*v1.ReadResponse, error) {
+	request := new(v1.ReadRequest)
+	request.DeviceId = swcon.DeviceId
+	cnte := new(v1.CounterEntry)
+	cnte.CounterId = cnterid
+	cnte.Index.Index = index
+	request.Entities = append(
+		request.Entities,
+		&v1.Entity{
+			Entity: &v1.Entity_CounterEntry{
+				CounterEntry: cnte,
+			}})
+	cl, err := swcon.Client.Read(context.Background(), request)
+	if err != nil {
+		return nil, err
+	}
+	return cl.Recv()
+}
+
+// yet unimplement
+func WritePREEntry() {}
+
+type GrpcRequestLogger struct{}
+
+func NewGrpcRequestLogger() {}
+
+func (GrpcRequestLogger) LogMessage() {}
+
+func (GrpcRequestLogger) InterceptUnaryUnary() {}
+
+func (GrpcRequestLogger) InterceptUnaryStream() {}

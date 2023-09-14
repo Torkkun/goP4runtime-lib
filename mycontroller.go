@@ -2,37 +2,47 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"gop4runtimelib/architecture"
+	"gop4runtimelib/helper"
 	simpleswitch "gop4runtimelib/shimpleswitch"
 	"log"
 	"os"
+	"os/signal"
+	"time"
 )
 
 var SWITCH_TO_HOST_PORT = 1
 var SWITCH_TO_SWITCH_PORT = 2
 
 func main() {
-	p4info := flag.String(
+	p4ipath := flag.String(
 		"p4info",
 		"./build/advanced_tunnel.p4.p4info.txt",
 		"p4info proto in text format from p4c")
 
-	bmv2json := flag.String(
+	bmv2jpath := flag.String(
 		"bmv2json",
 		"./build/advanced_tunnel.json",
 		"BMv2 JSON file from p4c")
 	flag.Parse()
 
-	if _, err := os.Stat(*p4info); err != nil {
-		log.Fatalf("File %s does not exist!: %v", *p4info, err)
+	if _, err := os.Stat(*p4ipath); err != nil {
+		log.Fatalf("File %s does not exist!: %v", *p4ipath, err)
 	}
 
-	if _, err := os.Stat(*bmv2json); err != nil {
-		log.Fatalf("File %s does not exist!: %v", *bmv2json, err)
+	if _, err := os.Stat(*bmv2jpath); err != nil {
+		log.Fatalf("File %s does not exist!: %v", *bmv2jpath, err)
 	}
 
+	// Instantiate a P4Runtime helper from the p4info file
+	p4ih := helper.NewP4InfoHelper(*p4ipath)
+
+	// Create a switch connection object for s1 and s2;
+	// this is backed by a P4Runtime gRPC connection.
+	// Also, dump all P4Runtime messages sent to switch to given txt files.
 	s1 := architecture.Bmv2SwitchConnection{
-		SwitchConnection: simpleswitch.SwitchConnection{
+		SwitchConnection: &simpleswitch.SwitchConnection{
 			Name:          "s1",
 			Address:       "127.0.0.1:50051",
 			DeviceId:      0,
@@ -40,7 +50,7 @@ func main() {
 		},
 	}
 	s2 := architecture.Bmv2SwitchConnection{
-		SwitchConnection: simpleswitch.SwitchConnection{
+		SwitchConnection: &simpleswitch.SwitchConnection{
 			Name:          "s2",
 			Address:       "127.0.0.1:50052",
 			DeviceId:      1,
@@ -48,10 +58,147 @@ func main() {
 		},
 	}
 
+	// Send master arbitration update message to establish this controller as
+	// master (required by P4Runtime before performing any other write operation)
 	s1.MasterArbitrationUpdate()
 	s2.MasterArbitrationUpdate()
+
+	// Install the P4 program on the switches
+	s1.SetForwardingPipelineConfig(p4ih.P4Info, *bmv2jpath)
+	fmt.Println("Installed P4 Program using SetForwardingPipelineConfig on s1")
+	s2.SetForwardingPipelineConfig(p4ih.P4Info, *bmv2jpath)
+	fmt.Println("Installed P4 Program using SetForwardingPipelineConfig on s2")
+
+	// Write the rules that tunnel traffic from h1 to h2
+	writeTunnelRules(p4ih, s1.SwitchConnection, s2.SwitchConnection, 100, "08:00:00:00:02:22", "10.0.2.2")
+
+	// Write the rules that tunnel traffic from h2 to h1
+	writeTunnelRules(p4ih, s1.SwitchConnection, s2.SwitchConnection, 200, "08:00:00:00:01:11", "10.0.1.1")
+
+	readTablesRules(p4ih, s1)
+	readTablesRules(p4ih, s2)
+
+	go func() {
+		for {
+			time.Sleep(time.Duration(2))
+			fmt.Println("\n----- Reading tunnel counters -----")
+			if err := printCounter(p4ih, s1, "MyIngress.ingressTunnelCounter", 100); err != nil {
+				log.Println(err)
+			}
+			if err := printCounter(p4ih, s2, "MyIngress.egressTunnelCounter", 100); err != nil {
+				log.Println(err)
+			}
+			if err := printCounter(p4ih, s2, "MyIngress.ingressTunnelCounter", 200); err != nil {
+				log.Println(err)
+			}
+			if err := printCounter(p4ih, s1, "MyIngress.egressTunnelCounter", 200); err != nil {
+				log.Println(err)
+			}
+		}
+	}()
+	// Ctrl + Cを検知
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	<-quit
+	fmt.Println(" Shut down. ")
+	simpleswitch.ShutdownAllSwitchConnections()
 }
 
-func writeTunnelRules(id uint32, dstethaddr, dstipaddr string) {
+func writeTunnelRules(
+	p4ih *helper.P4InfoHelper,
+	ingresssw *simpleswitch.SwitchConnection,
+	egresssw *simpleswitch.SwitchConnection,
+	tunid uint32, dstethaddr,
+	dstipaddr string,
+) {
+	//Tunnel Ingress Rule
+	tableentry, err := p4ih.BuildTableEntry(
+		"MyIngress.ipv4_lpm",
+		helper.MatchFields(&helper.MatchField_LPM{
+			LpmField: map[string]map[string]uint32{
+				"hdr.ipv4.dstAddr": {dstipaddr: 32},
+			},
+		}),
+		helper.ActionName("MyIngress.myTunnel_ingress"),
+		helper.ActionParam(map[string]interface{}{
+			"dst_id": tunid,
+		}),
+	)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	ingresssw.WriteTableEntry(tableentry)
+	fmt.Printf("Installed ingress tunnel rule on %s\n", ingresssw.Name)
+	//Tunnel Transit Rule
 
+	tableentry, err = p4ih.BuildTableEntry(
+		"MyIngress.myTunnel_exact",
+		helper.MatchFields(&helper.MatchField_EXACT{
+			ExactField: map[string]uint32{
+				"hdr.myTunnel.dst_id": tunid,
+			},
+		}),
+		helper.ActionName("MyIngress.myTunnel_forward"),
+		helper.ActionParam(map[string]interface{}{
+			"dstAddr": dstethaddr,
+			"port":    uint32(SWITCH_TO_SWITCH_PORT),
+		}),
+	)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	ingresssw.WriteTableEntry(tableentry)
+	fmt.Println("TODO Install transit tunnel rule")
+
+	tableentry, err = p4ih.BuildTableEntry(
+		"MyIngress.myTunnel_exact",
+		helper.MatchFields(&helper.MatchField_EXACT{
+			ExactField: map[string]uint32{
+				"hdr.myTunnel.dst_id": tunid,
+			},
+		}),
+		helper.ActionName("MyIngress.myTunnel_egress"),
+		helper.ActionParam(map[string]interface{}{
+			"dstAddr": dstethaddr,
+			"port":    uint32(SWITCH_TO_HOST_PORT),
+		}),
+	)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	egresssw.WriteTableEntry(tableentry)
+	fmt.Printf("Install egress tunnel rule on %s\n", egresssw.Name)
+}
+
+func readTablesRules(
+	p4ih *helper.P4InfoHelper,
+	sw architecture.Bmv2SwitchConnection,
+) {
+	fmt.Printf("\n----- Reading tables rules for %s -----", sw.Name)
+}
+
+func printCounter(
+	p4ih *helper.P4InfoHelper,
+	sw architecture.Bmv2SwitchConnection,
+	cntername string,
+	index int64,
+) error {
+	id, err := p4ih.GetID(helper.CounterEntity, cntername)
+	if err != nil {
+		return err
+	}
+	resp, err := sw.ReadCouter(
+		// p4ihとhelpr.EntityTypeを逆にしてGetIDをEntityTypeごとに持たせる
+		id,
+		index)
+	if err != nil {
+		return err
+	}
+	for _, entt := range resp.Entities {
+		cnte := entt.GetCounterEntry()
+		fmt.Printf("%s %s %d: %d packets (%d bytes)",
+			sw.Name, cntername, index,
+			cnte.Data.PacketCount, cnte.Data.ByteCount)
+	}
+	return nil
 }

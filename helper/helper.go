@@ -14,11 +14,11 @@ type P4InfoHelper struct {
 	P4Info *v1conf.P4Info
 }
 
-type EntityType string
+type EntityType int
 
 const (
-	entityTypeTables  EntityType = "tables"
-	entityTypeActions EntityType = "actions"
+	TableEntity EntityType = iota
+	CounterEntity
 )
 
 func NewP4InfoHelper(p4InfoFilePath string) *P4InfoHelper {
@@ -36,20 +36,22 @@ func NewP4InfoHelper(p4InfoFilePath string) *P4InfoHelper {
 	}
 }
 
-func (P4InfoHelper) Get() {
-
-}
-
-func (pih *P4InfoHelper) GetID(entitytype EntityType, name string) uint32 {
-
-}
-
-func (pih *P4InfoHelper) GetName() {
-
-}
-
-func (pih *P4InfoHelper) GetAlias() {
-
+func (pih *P4InfoHelper) GetID(et EntityType, name string) (uint32, error) {
+	switch et {
+	case TableEntity:
+		for _, v := range pih.P4Info.Tables {
+			if v.Preamble.Name == name {
+				return v.Preamble.Id, nil
+			}
+		}
+	case CounterEntity:
+		for _, v := range pih.P4Info.Counters {
+			if v.Preamble.Name == name {
+				return v.Preamble.Id, nil
+			}
+		}
+	}
+	return 0, fmt.Errorf("While Get ID, But not exist name in Entity")
 }
 
 type MatchFieldOption func(*v1conf.MatchField) bool
@@ -70,7 +72,7 @@ func (pih *P4InfoHelper) GetMatchField(tablename string, option ...MatchFieldOpt
 	for _, t := range pih.P4Info.Tables {
 		pre := t.Preamble
 		if pre.Name != tablename {
-			return nil, fmt.Errorf("Table Name not Equal Error: PreambleName=%s, tablename=%s", pre.Name, tablename)
+			continue
 		}
 		for _, mf := range t.MatchFields {
 			for _, o := range option {
@@ -98,23 +100,26 @@ type LpmValue struct {
 }
 
 // valueの与え方はもうちょっと考える
+// 処理がちょっと不明
 func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, matchfiledname string, value interface{}) (*v1.FieldMatch, error) {
 	p4infomatch, err := pih.GetMatchField(tablename, isSameName(matchfiledname))
 	if err != nil {
 		return nil, err
 	}
-	bitwidth := p4infomatch.Bitwidth
+	//bitwidth := p4infomatch.Bitwidth
 	p4rtm := new(v1.FieldMatch)
 	p4rtm.FieldId = p4infomatch.Id
 	mtype := p4infomatch.GetMatchType()
 	switch mtype {
 	case v1conf.MatchField_EXACT:
-		exact := p4rtm.GetExact()
-		exact.Value, err = encode(value.(ExactValue), bitwidth)
+		exact := new(v1.FieldMatch_Exact)
+		//exact.Value, err = encode(value.(ExactValue), bitwidth)
+		p4rtm.FieldMatchType = &v1.FieldMatch_Exact_{Exact: exact}
 	case v1conf.MatchField_LPM:
-		lpme := p4rtm.GetLpm()
-		lpme.Value, err = encode(value.(LpmValue).string, bitwidth)
-		lpme.PrefixLen = value.(LpmValue).int32
+		//lpme := p4rtm.GetLpm()
+		//lpme.Value, err = encode(value.(LpmValue).string, bitwidth)
+		//lpme.PrefixLen = value.(LpmValue).int32
+
 	case v1conf.MatchField_TERNARY:
 
 	case v1conf.MatchField_RANGE:
@@ -156,31 +161,64 @@ func Priority(priority int32) TableEntryOptions {
 }
 
 // mapで受け取る key is matchfield name , value is any id
-func MatchFields(match map[string]uint32) TableEntryOptions {
+func MatchFields(match isMatchFields) TableEntryOptions {
 	return func(te *v1.TableEntry) {
 		// get match field pbに	table nameとmatch field nameとvalueを引数に取らせる
 		// pending
+
 		te.Match = append(te.Match)
 	}
 }
+
+type isMatchFields interface {
+	isMatchFields()
+}
+
+type MatchField_EXACT struct {
+	ExactField map[string]uint32
+}
+
+type MatchField_LPM struct {
+	LpmField map[string]map[string]uint32
+}
+
+func (*MatchField_EXACT) isMatchFields() {}
+
+func (*MatchField_LPM) isMatchFields() {}
 
 func DeFaultAction() TableEntryOptions {
 	return func(te *v1.TableEntry) {}
 }
 
-func ActionName() TableEntryOptions {
-	return func(te *v1.TableEntry) {}
+// TODO:
+func ActionName(aname string) TableEntryOptions {
+	return func(te *v1.TableEntry) {
+
+	}
+}
+
+// TODO:
+func ActionParam(aprm map[string]interface{}) TableEntryOptions {
+	return func(te *v1.TableEntry) {
+
+	}
 }
 
 // 引数の値の与え方は要検討
-func (pih *P4InfoHelper) BuildTableEntry(tablename string, options ...TableEntryOptions) *v1.TableEntry {
+// とりあえずオプションにしているけど仕様書を見ながら変える
+// もし、Fieldがある程度理解度が上がれば、それぞれExactやLPMごとにTableEntry構造体を作成するかも
+func (pih *P4InfoHelper) BuildTableEntry(tablename string, options ...TableEntryOptions) (*v1.TableEntry, error) {
 	table := new(v1.TableEntry)
-	table.TableId = pih.GetID(entityTypeTables, tablename)
+	id, err := pih.GetID(TableEntity, tablename)
+	if err != nil {
+		return nil, err
+	}
+	table.TableId = id
 	//execute setting Option argument when exist Option Parameter in table entry struct
 	for _, o := range options {
 		o(table)
 	}
-	return table
+	return table, nil
 }
 
 func (pih *P4InfoHelper) BuidlMulticastGroupEntry() {

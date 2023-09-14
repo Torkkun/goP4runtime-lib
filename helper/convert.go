@@ -80,6 +80,7 @@ func decodeNum() int {
 	return 0
 }
 
+// 一旦encode部分は放置
 type Encode interface {
 	encode(int32) ([]byte, error)
 }
@@ -90,7 +91,7 @@ func (v ExactValue) encode(bitwidth int32) ([]byte, error) {
 
 func (v LpmValue) encode(bitwidth int32) ([]byte, error) {
 	var encodedbytes []byte
-	var err error
+	//var err error
 
 	if len(encodedbytes) == bitwidthToBytes(bitwidth) {
 		return nil, fmt.Errorf("Faital encode function: Not equal encodedbytes and converted bitwidth length\n")
