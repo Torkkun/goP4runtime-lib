@@ -29,6 +29,8 @@ type SwitchConnection struct {
 	Client        *v1.P4RuntimeClient
 	RequestStream v1.P4Runtime_StreamChannelClient
 	StreamMsgResp *v1.StreamMessageResponse
+
+	request *v1.StreamMessageRequest
 }
 
 func NewSwitchConnection(name string, address string, deviceid uint64, protodumpfile string) SwitchConnection {
@@ -74,8 +76,30 @@ func (swcon *SwitchConnection) Shutdown() {
 	}
 }
 
-func (swcon *SwitchConnection) MasterArbitrationUpdate(dryrun bool, opt ...interface{}) {
-	request := v1.StreamMessageRequest{
+type SwOptions func(*SwitchConnection)
+
+func IsDryRun(b bool) SwOptions {
+	return func(swcon *SwitchConnection) {
+		if b {
+			fmt.Printf("P4Runtime MasterArbitrationUpdate: %d", swcon.request)
+		} else {
+			// TODO: return value
+			if err := swcon.RequestStream.Send(swcon.request); err != nil {
+				log.Fatalln("MasterArbitrationUpdate channel send error: %v", err)
+			}
+			streamMsgResp, err := swcon.RequestStream.Recv()
+			if err != nil {
+				log.Fatalln("MasterArbitrationUpdate channel recv error: %v", err)
+			}
+			swcon.StreamMsgResp = streamMsgResp
+		}
+	}
+
+}
+
+// option is not funcationable
+func (swcon *SwitchConnection) MasterArbitrationUpdate(opts ...SwOptions) {
+	request := &v1.StreamMessageRequest{
 		Update: &v1.StreamMessageRequest_Arbitration{
 			Arbitration: &v1.MasterArbitrationUpdate{
 				DeviceId: swcon.DeviceId,
@@ -86,19 +110,9 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate(dryrun bool, opt ...inter
 			},
 		},
 	}
-
-	if dryrun {
-		fmt.Printf("P4Runtime MasterArbitrationUpdate: %d", request)
-	} else {
-		// TODO: return value
-		if err := swcon.RequestStream.Send(&request); err != nil {
-			log.Fatalln("MasterArbitrationUpdate channel send error: %v", err)
-		}
-		streamMsgResp, err := swcon.RequestStream.Recv()
-		if err != nil {
-			log.Fatalln("MasterArbitrationUpdate channel recv error: %v", err)
-		}
-		swcon.StreamMsgResp = streamMsgResp
+	swcon.request = request
+	for _, o := range opts {
+		o(swcon)
 	}
 }
 

@@ -91,8 +91,14 @@ func (pih *P4InfoHelper) GetMatchFieldName() {
 
 }
 
+type ExactValue string
+type LpmValue struct {
+	Dst string
+	Id  int32
+}
+
 // valueの与え方はもうちょっと考える
-func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, matchfiledname string, value []interface{}) (*v1.FieldMatch, error) {
+func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, matchfiledname string, value interface{}) (*v1.FieldMatch, error) {
 	p4infomatch, err := pih.GetMatchField(tablename, isSameName(matchfiledname))
 	if err != nil {
 		return nil, err
@@ -104,11 +110,11 @@ func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, matchfiledname string
 	switch mtype {
 	case v1conf.MatchField_EXACT:
 		exact := p4rtm.GetExact()
-		exact.Value, err = encode(value, bitwidth)
+		exact.Value, err = encode(value.(ExactValue), bitwidth)
 	case v1conf.MatchField_LPM:
 		lpme := p4rtm.GetLpm()
-		lpme.Value, err = encode(value[0], bitwidth)
-		lpme.PrefixLen = value[1].(int32)
+		lpme.Value, err = encode(value.(LpmValue).string, bitwidth)
+		lpme.PrefixLen = value.(LpmValue).int32
 	case v1conf.MatchField_TERNARY:
 
 	case v1conf.MatchField_RANGE:
@@ -167,11 +173,11 @@ func ActionName() TableEntryOptions {
 }
 
 // 引数の値の与え方は要検討
-func (pih *P4InfoHelper) BuildTableEntry(tablename string, TableEntryoptions ...TableEntryOptions) *v1.TableEntry {
+func (pih *P4InfoHelper) BuildTableEntry(tablename string, options ...TableEntryOptions) *v1.TableEntry {
 	table := new(v1.TableEntry)
 	table.TableId = pih.GetID(entityTypeTables, tablename)
 	//execute setting Option argument when exist Option Parameter in table entry struct
-	for _, o := range TableEntryoptions {
+	for _, o := range options {
 		o(table)
 	}
 	return table

@@ -80,24 +80,36 @@ func decodeNum() int {
 	return 0
 }
 
-func encode(x interface{}, bitwidth int32) ([]byte, error) {
+type Encode interface {
+	encode(int32) ([]byte, error)
+}
+
+func (v ExactValue) encode(bitwidth int32) ([]byte, error) {
+
+}
+
+func (v LpmValue) encode(bitwidth int32) ([]byte, error) {
 	var encodedbytes []byte
 	var err error
-	switch v := x.(type) {
-	case string:
-		if matchesMac(v) {
-			encodedbytes, err = encodeMac(v)
-			return nil, err
-		} else if matchesIPv4(v) {
-			encodedbytes = encodeIPv4(v)
-		} else {
-			encodedbytes = []byte(v)
-		}
-	case uint32:
-		encodedbytes[0] = byte(v)
-	}
+
 	if len(encodedbytes) == bitwidthToBytes(bitwidth) {
 		return nil, fmt.Errorf("Faital encode function: Not equal encodedbytes and converted bitwidth length\n")
 	}
 	return encodedbytes, nil
+}
+
+func encodedDst(dst string) ([]byte, error) {
+	var encodedbytes []byte
+	var err error
+	if matchesMac(dst) {
+		encodedbytes, err = encodeMac(dst)
+		if err != nil {
+			return nil, err
+		}
+	} else if matchesIPv4(dst) {
+		encodedbytes = encodeIPv4(dst)
+	} else {
+		encodedbytes = []byte(dst)
+	}
+	return encodedbytes, err
 }

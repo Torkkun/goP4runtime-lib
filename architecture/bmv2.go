@@ -2,14 +2,12 @@ package architecture
 
 import simpleswitch "gop4runtimelib/shimpleswitch"
 
-func buildDeviceConfig(bmv2JsonfilePath string) {
-
-}
-
+// DIしてもいい
 type Bmv2SwitchConnection struct {
-	simpleswitch simpleswitch.SwitchConnection
+	simpleswitch.SwitchConnection
 }
 
 func (Bmv2SwitchConnection) buildDeviceConfig() {
+	// Build the device config for BMv2
 
 }
