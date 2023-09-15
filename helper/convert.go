@@ -6,7 +6,6 @@ import (
 	"math"
 	"net"
 	"regexp"
-	"strconv"
 )
 
 const (
@@ -53,14 +52,12 @@ func bitwidthToBytes(bitwidth int32) int {
 	return int(math.Ceil(float64(bitwidth) / 8.0))
 }
 
-// fix:
-// そもそも何したい部分だ？
-func encodeNum(number, bitwidth int) error {
+func encodeNum(number, bitwidth int32) ([]byte, error) {
 	//byteLen := bitwidthToBytes(bitwidth)
-	origNumber := number
+	/* origNumber := number
 
 	if number < 0 {
-		if number < -(int(math.Pow(2, float64(bitwidth)-1))) {
+		if number <- (int(math.Pow(2, float64(bitwidth)-1))) {
 			return fmt.Errorf("Nagative namuber, %d, has 2's complete representation that does nao fit in %d bits\n", number, bitwidth)
 		}
 		number = int(math.Pow(2, float64(bitwidth))) + number
@@ -72,29 +69,41 @@ func encodeNum(number, bitwidth int) error {
 	}
 	if number >= int(math.Pow(2, float64(bitwidth))) {
 		return fmt.Errorf("Number, %d, does not fit in %d bits\n", number, bitwidth)
-	}
-	return nil
+	}*/
+	return nil, nil
 }
 
 func decodeNum() int {
 	return 0
 }
 
-// 一旦encode部分は放置
-type Encode interface {
-	encode(int32) ([]byte, error)
-}
-
-func (v ExactValue) encode(bitwidth int32) ([]byte, error) {
-
-}
-
-func (v LpmValue) encode(bitwidth int32) ([]byte, error) {
+func encode(data interface{}, bitwidth int32) ([]byte, error) {
+	bytelen := bitwidthToBytes(bitwidth)
 	var encodedbytes []byte
-	//var err error
+	var err error
+	switch v := data.(type) {
+	case string:
+		if matchesMac(v) {
+			encodedbytes, err = encodeMac(v)
+			if err != nil {
+				return nil, err
+			}
+		} else if matchesIPv4(v) {
+			encodedbytes = encodeIPv4(v)
+		} else {
+			encodedbytes = []byte(v)
+		}
+	case int32:
+		encodedbytes, err = encodeNum(v, bitwidth)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("Encoding objects of %v is not supported", v)
 
-	if len(encodedbytes) == bitwidthToBytes(bitwidth) {
-		return nil, fmt.Errorf("Faital encode function: Not equal encodedbytes and converted bitwidth length\n")
+	}
+	if len(encodedbytes) != bytelen {
+		return nil, fmt.Errorf("encodedbytes and bytelen length is not equal")
 	}
 	return encodedbytes, nil
 }
@@ -110,6 +119,7 @@ func encodedDst(dst string) ([]byte, error) {
 	} else if matchesIPv4(dst) {
 		encodedbytes = encodeIPv4(dst)
 	} else {
+		//imm
 		encodedbytes = []byte(dst)
 	}
 	return encodedbytes, err

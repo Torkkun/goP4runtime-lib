@@ -114,11 +114,13 @@ func writeTunnelRules(
 	//Tunnel Ingress Rule
 	tableentry, err := p4ih.BuildTableEntry(
 		"MyIngress.ipv4_lpm",
-		helper.MatchFields(&helper.MatchField_LPM{
-			LpmField: map[string]map[string]uint32{
-				"hdr.ipv4.dstAddr": {dstipaddr: 32},
+		&helper.IsEntryMatchField{
+			Name: "hdr.ipv4.dstAddr",
+			EntryMatchField: &helper.EntryMatchFieldLpm{
+				Value0: dstethaddr,
+				Value1: 32,
 			},
-		}),
+		},
 		helper.ActionName("MyIngress.myTunnel_ingress"),
 		helper.ActionParam(map[string]interface{}{
 			"dst_id": tunid,
@@ -133,11 +135,12 @@ func writeTunnelRules(
 
 	tableentry, err = p4ih.BuildTableEntry(
 		"MyIngress.myTunnel_exact",
-		helper.MatchFields(&helper.MatchField_EXACT{
-			ExactField: map[string]uint32{
-				"hdr.myTunnel.dst_id": tunid,
+		&helper.IsEntryMatchField{
+			Name: "hdr.myTunnel.dst_id",
+			EntryMatchField: &helper.EntryMatchFieldExact{
+				Value0: tunid,
 			},
-		}),
+		},
 		helper.ActionName("MyIngress.myTunnel_forward"),
 		helper.ActionParam(map[string]interface{}{
 			"dstAddr": dstethaddr,
@@ -152,11 +155,12 @@ func writeTunnelRules(
 
 	tableentry, err = p4ih.BuildTableEntry(
 		"MyIngress.myTunnel_exact",
-		helper.MatchFields(&helper.MatchField_EXACT{
-			ExactField: map[string]uint32{
-				"hdr.myTunnel.dst_id": tunid,
+		&helper.IsEntryMatchField{
+			Name: "hdr.myTunnel.dst_id",
+			EntryMatchField: &helper.EntryMatchFieldExact{
+				Value0: tunid,
 			},
-		}),
+		},
 		helper.ActionName("MyIngress.myTunnel_egress"),
 		helper.ActionParam(map[string]interface{}{
 			"dstAddr": dstethaddr,
@@ -173,10 +177,30 @@ func writeTunnelRules(
 func readTablesRules(
 	p4ih *helper.P4InfoHelper,
 	sw architecture.Bmv2SwitchConnection,
-) {
+) error {
 	fmt.Printf("\n----- Reading tables rules for %s -----", sw.Name)
+	resp, err := sw.ReadTableEntry(0)
+	if err != nil {
+		return err
+	}
+	for _, entt := range resp.Entities {
+		te := entt.GetTableEntry()
+		tname, err := p4ih.GetName(helper.TableEntity, te.TableId)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s: ", tname)
+		for _, m := range te.Match {
+			mfn, err := p4ih.GetMatchFieldName(tname, m.FieldId)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s ", mfn)
+			fmt.Printf("%s")
+		}
+	}
+	return nil
 }
-
 func printCounter(
 	p4ih *helper.P4InfoHelper,
 	sw architecture.Bmv2SwitchConnection,

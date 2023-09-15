@@ -119,11 +119,25 @@ func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
 	swcon.Client.Write(context.Background(), request)
 }
 
-func (swcon *SwitchConnection) ReadTableEntry(tid uint32) {
-
+func (swcon *SwitchConnection) ReadTableEntry(tid uint32) (*v1.ReadResponse, error) {
+	reqest := new(v1.ReadRequest)
+	reqest.DeviceId = swcon.DeviceId
+	te := new(v1.TableEntry)
+	te.TableId = tid
+	reqest.Entities = append(
+		reqest.Entities,
+		&v1.Entity{
+			Entity: &v1.Entity_TableEntry{
+				TableEntry: te,
+			},
+		})
+	cl, err := swcon.Client.Read(context.Background(), reqest)
+	if err != nil {
+		return nil, err
+	}
+	return cl.Recv()
 }
 
-// dry runいらない？？
 func (swcon *SwitchConnection) ReadCouter(cnterid uint32, index int64) (*v1.ReadResponse, error) {
 	request := new(v1.ReadRequest)
 	request.DeviceId = swcon.DeviceId
