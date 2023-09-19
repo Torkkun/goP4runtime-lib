@@ -97,7 +97,7 @@ func main() {
 		}
 	}()
 	// Ctrl + Cを検知
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 	<-quit
 	fmt.Println(" Shut down. ")
@@ -237,7 +237,6 @@ func printCounter(
 		return err
 	}
 	resp, err := sw.ReadCouter(
-		// p4ihとhelpr.EntityTypeを逆にしてGetIDをEntityTypeごとに持たせる
 		id,
 		index)
 	if err != nil {
