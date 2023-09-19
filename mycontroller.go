@@ -197,13 +197,32 @@ func readTablesRules(
 		}
 		fmt.Printf("%s: ", tname)
 		for _, m := range te.Match {
-			mfn, err := p4ih.GetMatchFieldName(tname, m.FieldId)
+			mf, err := p4ih.GetMatchFieldWithId(tname, m.FieldId)
 			if err != nil {
 				return err
 			}
-			fmt.Printf("%s ", mfn)
-			fmt.Printf("%s")
+			fmt.Printf("%s ", mf.Name)
+			v, err := p4ih.GetMatchFieldValue(mf, m)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%v ", v)
 		}
+		action := te.GetAction()
+		actionname, err := p4ih.GetName(helper.ActionEntity, action.GetAction().ActionId)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("->%s ", actionname)
+		for _, p := range action.GetAction().Params {
+			ap, err := p4ih.GetActionParamWithId(actionname, p.ParamId)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%s ", ap.Name)
+			fmt.Printf("%v ", p.Value)
+		}
+		fmt.Println()
 	}
 	return nil
 }

@@ -80,38 +80,38 @@ func (pih *P4InfoHelper) GetName(et EntityType, id uint32) (string, error) {
 
 }
 
-func (pih *P4InfoHelper) GetMatchFieldId(tablename, name string) (*v1conf.MatchField, error) {
+func (pih *P4InfoHelper) GetMatchFields(tablename string) []*v1conf.MatchField {
 	for _, t := range pih.P4Info.Tables {
 		pre := t.Preamble
 		if pre.Name == tablename {
-			for _, mf := range t.MatchFields {
-				if mf.Name == name {
-					return mf, nil
-				}
-			}
+			return t.MatchFields
+		}
+	}
+	return nil
+}
+
+func (pih *P4InfoHelper) GetMatchFieldWithName(tablename, name string) (*v1conf.MatchField, error) {
+	for _, mf := range pih.GetMatchFields(tablename) {
+		if mf.Name == name {
+			return mf, nil
 		}
 	}
 	return nil, fmt.Errorf("can not Find Match Filed Name is %s in %s Table", name, tablename)
 }
 
-func (pih *P4InfoHelper) GetMatchFieldName(tname string, id uint32) (*v1conf.MatchField, error) {
-	for _, t := range pih.P4Info.Tables {
-		pre := t.Preamble
-		if pre.Name == tname {
-			for _, mf := range t.MatchFields {
-				if mf.Id == id {
-					return mf, nil
-				}
-			}
+func (pih *P4InfoHelper) GetMatchFieldWithId(tablename string, id uint32) (*v1conf.MatchField, error) {
+	for _, mf := range pih.GetMatchFields(tablename) {
+		if mf.Id == id {
+			return mf, nil
 		}
 	}
-	return nil, fmt.Errorf("can not Find Match Filed Name is %d in %s Table", id, tname)
+	return nil, fmt.Errorf("can not Find Match Filed Name is %d in %s Table", id, tablename)
 }
 
 // valueの与え方はもうちょっと考える
 // 処理がちょっと不明
 func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, iemf *IsEntryMatchField) (*v1.FieldMatch, error) {
-	mf, err := pih.GetMatchFieldId(tablename, iemf.Name)
+	mf, err := pih.GetMatchFieldWithName(tablename, iemf.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -129,13 +129,13 @@ func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, iemf *IsEntryMatchFie
 		p4rtm.FieldMatchType = &v1.FieldMatch_Exact_{Exact: exact}
 	case v1conf.MatchField_LPM:
 		values := iemf.EntryMatchField.(*EntryMatchFieldLpm)
-		lpme := new(v1.FieldMatch_LPM)
-		lpme.Value, err = encode(values.Value0, bitwidth)
+		lpm := new(v1.FieldMatch_LPM)
+		lpm.Value, err = encode(values.Value0, bitwidth)
 		if err != nil {
 			return nil, err
 		}
-		lpme.PrefixLen = values.Value1
-
+		lpm.PrefixLen = values.Value1
+		p4rtm.FieldMatchType = &v1.FieldMatch_Lpm{Lpm: lpm}
 	case v1conf.MatchField_TERNARY:
 
 	case v1conf.MatchField_RANGE:
@@ -148,43 +148,52 @@ func (pih *P4InfoHelper) GetMatchFieldPb(tablename string, iemf *IsEntryMatchFie
 	return p4rtm, nil
 }
 
-func (pih *P4InfoHelper) GetMatchFieldValue(mf *v1conf.MatchField) {
-
+func (pih *P4InfoHelper) GetMatchFieldValue(mf *v1conf.MatchField, m *v1.FieldMatch) ([]byte, error) {
 	switch mf.GetMatchType() {
 	case v1conf.MatchField_EXACT:
-
+		v := m.FieldMatchType.(*v1.FieldMatch_Exact_).Exact.Value
+		return v, nil
 	case v1conf.MatchField_LPM:
+		v := m.FieldMatchType.(*v1.FieldMatch_Lpm).Lpm.Value
+		return v, nil
 	case v1conf.MatchField_TERNARY:
 	case v1conf.MatchField_RANGE:
-	default:
-
 	}
-
+	return nil, fmt.Errorf("FieldMatch Value Error")
 }
 
-func (pih *P4InfoHelper) GetActionParamId(actionname, name string) (*v1conf.Action_Param, error) {
+func (pih *P4InfoHelper) GetActionParams(actionname string) []*v1conf.Action_Param {
 	for _, a := range pih.P4Info.Actions {
 		pre := a.Preamble
 		if pre.Name == actionname {
-			for _, ap := range a.Params {
-				if ap.Name == name {
-					return ap, nil
-				}
-			}
+			return a.Params
+		}
+	}
+	return nil
+}
+
+func (pih *P4InfoHelper) GetActionParamWithName(actionname, name string) (*v1conf.Action_Param, error) {
+	for _, ap := range pih.GetActionParams(actionname) {
+		if ap.Name == name {
+			return ap, nil
 		}
 	}
 	return nil, fmt.Errorf("can not Find Action Params Name is %s in %s Table", name, actionname)
-
 }
 
-func (pih *P4InfoHelper) GetActionParamName() {
-
+func (pih *P4InfoHelper) GetActionParamWithId(actionname string, id uint32) (*v1conf.Action_Param, error) {
+	for _, ap := range pih.GetActionParams(actionname) {
+		if ap.Id == id {
+			return ap, nil
+		}
+	}
+	return nil, fmt.Errorf("can not Find Action Params ID is %d in %s Table", id, actionname)
 }
 
 func (pih *P4InfoHelper) GetActionParamPb(actionname string, param map[string]interface{}) ([]*v1.Action_Param, error) {
 	var aps []*v1.Action_Param
 	for k, v := range param {
-		param, err := pih.GetActionParamId(actionname, k)
+		param, err := pih.GetActionParamWithName(actionname, k)
 		if err != nil {
 			return nil, err
 		}

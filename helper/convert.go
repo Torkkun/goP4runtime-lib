@@ -1,11 +1,13 @@
 package helper
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"net"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -53,24 +55,50 @@ func bitwidthToBytes(bitwidth int32) int {
 }
 
 func encodeNum(number, bitwidth int32) ([]byte, error) {
-	//byteLen := bitwidthToBytes(bitwidth)
-	/* origNumber := number
+	byteLen := bitwidthToBytes(bitwidth)
+	origNumber := number
 
 	if number < 0 {
-		if number <- (int(math.Pow(2, float64(bitwidth)-1))) {
-			return fmt.Errorf("Nagative namuber, %d, has 2's complete representation that does nao fit in %d bits\n", number, bitwidth)
+		if number < -(1 << (bitwidth - 1)) {
+			return nil, fmt.Errorf("nagative namuber %d has 2's complete representation that does nao fit in %d bits", number, bitwidth)
 		}
-		number = int(math.Pow(2, float64(bitwidth))) + number
+		number = (1 << bitwidth) + number
 	}
-	numStr := strconv.Itoa(number)
+	numStr := fmt.Sprintf("%x", number)
 	if origNumber < 0 {
 		fmt.Printf("CONVERT_NEGATIVE_NUMBER debug: origNumber=%d number=%d bitwidth=%d numStr=%s\n",
 			origNumber, number, bitwidth, numStr)
 	}
-	if number >= int(math.Pow(2, float64(bitwidth))) {
-		return fmt.Errorf("Number, %d, does not fit in %d bits\n", number, bitwidth)
-	}*/
-	return nil, nil
+	if number >= 1<<bitwidth {
+		return nil, fmt.Errorf("number, %d, does not fit in %d bits", number, bitwidth)
+	}
+
+	// Create a hex string with leading zeros to fill the required byte length.
+	paddedNumStr := strings.Repeat("0", byteLen*2-len(numStr)) + numStr
+	decodedBytes, err := hexStringToBytes(paddedNumStr)
+	if err != nil {
+		return nil, err
+	}
+	return decodedBytes, nil
+}
+
+func hexStringToBytes(hexStr string) ([]byte, error) {
+	hexStr = strings.TrimPrefix(hexStr, "0x")
+	if len(hexStr)%2 != 0 {
+		hexStr = "0" + hexStr
+	}
+
+	bytesLen := len(hexStr) / 2
+	result := make([]byte, bytesLen)
+
+	for i := 0; i < bytesLen; i++ {
+		n, err := fmt.Sscanf(hexStr[2*i:2*i+2], "%02x", &result[i])
+		if err != nil || n != 1 {
+			return nil, errors.New("failed to decode hex string to bytes")
+		}
+	}
+
+	return result, nil
 }
 
 func decodeNum() int {
@@ -99,7 +127,7 @@ func encode(data interface{}, bitwidth int32) ([]byte, error) {
 			return nil, err
 		}
 	default:
-		return nil, fmt.Errorf("Encoding objects of %v is not supported", v)
+		return nil, fmt.Errorf("encoding objects of %v is not supported", v)
 
 	}
 	if len(encodedbytes) != bytelen {
