@@ -121,10 +121,12 @@ func writeTunnelRules(
 				Value1: 32,
 			},
 		},
-		helper.ActionName("MyIngress.myTunnel_ingress"),
-		helper.ActionParam(map[string]interface{}{
-			"dst_id": tunid,
-		}),
+		helper.Action(
+			"MyIngress.myTunnel_ingress",
+			map[string]interface{}{
+				"dst_id": tunid,
+			},
+		),
 	)
 	if err != nil {
 		log.Fatalln(err)
@@ -141,11 +143,13 @@ func writeTunnelRules(
 				Value0: tunid,
 			},
 		},
-		helper.ActionName("MyIngress.myTunnel_forward"),
-		helper.ActionParam(map[string]interface{}{
-			"dstAddr": dstethaddr,
-			"port":    uint32(SWITCH_TO_SWITCH_PORT),
-		}),
+		helper.Action(
+			"MyIngress.myTunnel_forward",
+			map[string]interface{}{
+				"dstAddr": dstethaddr,
+				"port":    uint32(SWITCH_TO_SWITCH_PORT),
+			},
+		),
 	)
 	if err != nil {
 		log.Fatalln(err)
@@ -161,11 +165,13 @@ func writeTunnelRules(
 				Value0: tunid,
 			},
 		},
-		helper.ActionName("MyIngress.myTunnel_egress"),
-		helper.ActionParam(map[string]interface{}{
-			"dstAddr": dstethaddr,
-			"port":    uint32(SWITCH_TO_HOST_PORT),
-		}),
+		helper.Action(
+			"MyIngress.myTunnel_egress",
+			map[string]interface{}{
+				"dstAddr": dstethaddr,
+				"port":    uint32(SWITCH_TO_HOST_PORT),
+			},
+		),
 	)
 	if err != nil {
 		log.Fatalln(err)
