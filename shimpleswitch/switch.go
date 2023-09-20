@@ -110,11 +110,14 @@ func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info
 	devconf := new(v1.ForwardingPipelineConfig)
 	devconf.P4Info = p4info
 	devconf.P4DeviceConfig = p4devconf
-	request := new(v1.SetForwardingPipelineConfigRequest)
-	request.ElectionId.Low = 1
-	request.DeviceId = swcon.DeviceId
-	request.Config = devconf
-	request.Action = v1.SetForwardingPipelineConfigRequest_VERIFY_AND_COMMIT
+	request := &v1.SetForwardingPipelineConfigRequest{
+		DeviceId: swcon.DeviceId,
+		ElectionId: &v1.Uint128{
+			Low: 1,
+		},
+		Config: devconf,
+		Action: v1.SetForwardingPipelineConfigRequest_VERIFY_AND_COMMIT,
+	}
 	_, err := swcon.Client.SetForwardingPipelineConfig(context.Background(), request)
 	if err != nil {
 		return err
