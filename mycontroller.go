@@ -64,9 +64,11 @@ func main() {
 	s2.MasterArbitrationUpdate()
 
 	// Install the P4 program on the switches
-	s1.SetForwardingPipelineConfig(p4ih.P4Info, *bmv2jpath)
+	p4devconf := simpleswitch.NewBuildDeviceConfig(s1, *bmv2jpath)
+	s1.SetForwardingPipelineConfig(p4ih.P4Info, p4devconf)
 	fmt.Println("Installed P4 Program using SetForwardingPipelineConfig on s1")
-	s2.SetForwardingPipelineConfig(p4ih.P4Info, *bmv2jpath)
+	p4devconf = simpleswitch.NewBuildDeviceConfig(s2, *bmv2jpath)
+	s2.SetForwardingPipelineConfig(p4ih.P4Info, p4devconf)
 	fmt.Println("Installed P4 Program using SetForwardingPipelineConfig on s2")
 
 	// Write the rules that tunnel traffic from h1 to h2

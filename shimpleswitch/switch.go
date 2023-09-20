@@ -65,6 +65,14 @@ func NewSwitchConnection(name string, address string, deviceid uint64, protodump
 	return *newswcon
 }
 
+type BuildDeviceConfig interface {
+	BuildDeviceConfig(string) []byte
+}
+
+func NewBuildDeviceConfig(builddevconf BuildDeviceConfig, config string) []byte {
+	return builddevconf.BuildDeviceConfig(config)
+}
+
 func (swcon *SwitchConnection) shutdown() {
 	if err := swcon.Channel.Close(); err != nil {
 		log.Printf("channel close shutdownfunc error : %v", err)
@@ -98,9 +106,10 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate() {
 	swcon.StreamMsgResp = streamMsgResp
 }
 
-func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info, bmv2jpath string) error {
+func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info, p4devconf []byte) error {
 	devconf := new(v1.ForwardingPipelineConfig)
 	devconf.P4Info = p4info
+	devconf.P4DeviceConfig = p4devconf
 	request := new(v1.SetForwardingPipelineConfigRequest)
 	request.ElectionId.Low = 1
 	request.DeviceId = swcon.DeviceId

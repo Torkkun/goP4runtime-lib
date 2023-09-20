@@ -49,7 +49,6 @@ func decodeIPv4(encodedIpv4Addr net.IP) string {
 }
 
 // bit to byte length conversion
-// セグフォしそうなので一応注意
 func bitwidthToBytes(bitwidth int32) int {
 	return int(math.Ceil(float64(bitwidth) / 8.0))
 }
