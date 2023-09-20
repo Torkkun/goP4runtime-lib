@@ -16,7 +16,7 @@ var connections []*SwitchConnection
 
 func ShutdownAllSwitchConnections() {
 	for _, c := range connections {
-		c.Shutdown()
+		c.shutdown()
 	}
 }
 
@@ -65,7 +65,7 @@ func NewSwitchConnection(name string, address string, deviceid uint64, protodump
 	return *newswcon
 }
 
-func (swcon *SwitchConnection) Shutdown() {
+func (swcon *SwitchConnection) shutdown() {
 	if err := swcon.Channel.Close(); err != nil {
 		log.Printf("channel close shutdownfunc error : %v", err)
 	}
@@ -98,8 +98,19 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate() {
 	swcon.StreamMsgResp = streamMsgResp
 }
 
-func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info, bmv2jpath string) {
-
+func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info, bmv2jpath string) error {
+	devconf := new(v1.ForwardingPipelineConfig)
+	devconf.P4Info = p4info
+	request := new(v1.SetForwardingPipelineConfigRequest)
+	request.ElectionId.Low = 1
+	request.DeviceId = swcon.DeviceId
+	request.Config = devconf
+	request.Action = v1.SetForwardingPipelineConfigRequest_VERIFY_AND_COMMIT
+	_, err := swcon.Client.SetForwardingPipelineConfig(context.Background(), request)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
