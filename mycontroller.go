@@ -60,8 +60,8 @@ func main() {
 
 	// Send master arbitration update message to establish this controller as
 	// master (required by P4Runtime before performing any other write operation)
-	s1.SwitchConnection.MasterArbitrationUpdate()
-	s2.SwitchConnection.MasterArbitrationUpdate()
+	s1.MasterArbitrationUpdate()
+	s2.MasterArbitrationUpdate()
 
 	// Install the P4 program on the switches
 	p4devconf := simpleswitch.NewBuildDeviceConfig(s1, *bmv2jpath)

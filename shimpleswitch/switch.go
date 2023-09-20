@@ -44,7 +44,7 @@ func NewSwitchConnection(name string, address string, deviceid uint64, protodump
 	if err != nil {
 		log.Fatalf("NewConnection failed:%v", err)
 	}
-	defer conn.Close()
+	//defer conn.Close()
 
 	newswcon.Channel = conn
 	/*if protodumpfile != "" {
@@ -95,7 +95,6 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate() {
 		},
 	}
 
-	// TODO: return value
 	if err := swcon.RequestStream.Send(request); err != nil {
 		log.Fatalf("MasterArbitrationUpdate channel send error: %v", err)
 	}
