@@ -42,20 +42,20 @@ func main() {
 	// this is backed by a P4Runtime gRPC connection.
 	// Also, dump all P4Runtime messages sent to switch to given txt files.
 	s1 := architecture.Bmv2SwitchConnection{
-		SwitchConnection: &simpleswitch.SwitchConnection{
-			Name:          "s1",
-			Address:       "127.0.0.1:50051",
-			DeviceId:      0,
-			ProtoDumpFile: "logs/s1-p4runtime-requests.txt",
-		},
+		SwitchConnection: simpleswitch.NewSwitchConnection(
+			"s1",
+			"127.0.0.1:50051",
+			0,
+			"logs/s1-p4runtime-requests.txt",
+		),
 	}
 	s2 := architecture.Bmv2SwitchConnection{
-		SwitchConnection: &simpleswitch.SwitchConnection{
-			Name:          "s2",
-			Address:       "127.0.0.1:50052",
-			DeviceId:      1,
-			ProtoDumpFile: "logs/s2-p4runtime-requests.txt",
-		},
+		SwitchConnection: simpleswitch.NewSwitchConnection(
+			"s2",
+			"127.0.0.1:50052",
+			1,
+			"logs/s2-p4runtime-requests.txt",
+		),
 	}
 
 	// Send master arbitration update message to establish this controller as

@@ -31,7 +31,7 @@ type SwitchConnection struct {
 	StreamMsgResp *v1.StreamMessageResponse
 }
 
-func NewSwitchConnection(name string, address string, deviceid uint64, protodumpfile string) SwitchConnection {
+func NewSwitchConnection(name string, address string, deviceid uint64, protodumpfile string) *SwitchConnection {
 	newswcon := new(SwitchConnection)
 	newswcon.Name = name
 	newswcon.Address = address
@@ -62,7 +62,7 @@ func NewSwitchConnection(name string, address string, deviceid uint64, protodump
 		connections = make([]*SwitchConnection, 0)
 	}
 	connections = append(connections, newswcon)
-	return *newswcon
+	return newswcon
 }
 
 type BuildDeviceConfig interface {
@@ -95,6 +95,7 @@ func (swcon *SwitchConnection) MasterArbitrationUpdate() {
 		},
 	}
 
+	// RequestStreamがNil
 	if err := swcon.RequestStream.Send(request); err != nil {
 		log.Fatalf("MasterArbitrationUpdate channel send error: %v", err)
 	}
