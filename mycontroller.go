@@ -75,7 +75,7 @@ func main() {
 	writeTunnelRules(p4ih, s1.SwitchConnection, s2.SwitchConnection, 100, "08:00:00:00:02:22", "10.0.2.2")
 
 	// Write the rules that tunnel traffic from h2 to h1
-	writeTunnelRules(p4ih, s1.SwitchConnection, s2.SwitchConnection, 200, "08:00:00:00:01:11", "10.0.1.1")
+	writeTunnelRules(p4ih, s2.SwitchConnection, s1.SwitchConnection, 200, "08:00:00:00:01:11", "10.0.1.1")
 
 	readTablesRules(p4ih, s1)
 	readTablesRules(p4ih, s2)
@@ -119,7 +119,7 @@ func writeTunnelRules(
 		&helper.IsEntryMatchField{
 			Name: "hdr.ipv4.dstAddr",
 			EntryMatchField: &helper.EntryMatchFieldLpm{
-				Value0: dstethaddr,
+				Value0: dstipaddr,
 				Value1: 32,
 			},
 		},
@@ -148,8 +148,7 @@ func writeTunnelRules(
 		helper.Action(
 			"MyIngress.myTunnel_forward",
 			map[string]interface{}{
-				"dstAddr": dstethaddr,
-				"port":    uint32(SWITCH_TO_SWITCH_PORT),
+				"port": uint32(SWITCH_TO_SWITCH_PORT),
 			},
 		),
 	)
