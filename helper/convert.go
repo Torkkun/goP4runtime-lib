@@ -41,7 +41,7 @@ func matchesIPv4(ipv4Addr string) bool {
 }
 
 func encodeIPv4(ipv4Addr string) []byte {
-	return net.ParseIP(ipv4Addr)
+	return net.ParseIP(ipv4Addr).To4()
 }
 
 func decodeIPv4(encodedIpv4Addr net.IP) string {
@@ -120,8 +120,8 @@ func encode(data interface{}, bitwidth int32) ([]byte, error) {
 		} else {
 			encodedbytes = []byte(v)
 		}
-	case int32:
-		encodedbytes, err = encodeNum(v, bitwidth)
+	case int:
+		encodedbytes, err = encodeNum(int32(v), bitwidth)
 		if err != nil {
 			return nil, err
 		}

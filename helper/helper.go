@@ -211,7 +211,7 @@ func (pih *P4InfoHelper) GetActionParamPb(actionname string, param map[string]in
 type TableEntryOptions func(*v1.TableEntry, *P4InfoHelper) error
 
 func Priority(priority int32) TableEntryOptions {
-	return func(te *v1.TableEntry, pih *P4InfoHelper) error {
+	return func(te *v1.TableEntry, _ *P4InfoHelper) error {
 		te.Priority = priority
 		return nil
 	}
@@ -240,7 +240,7 @@ func (*EntryMatchFieldExact) isEntryMatchFieldType() {}
 func (*EntryMatchFieldLpm) isEntryMatchFieldType() {}
 
 func DeFaultAction(dact bool) TableEntryOptions {
-	return func(te *v1.TableEntry, pih *P4InfoHelper) error {
+	return func(te *v1.TableEntry, _ *P4InfoHelper) error {
 		te.IsDefaultAction = dact
 		return nil
 	}
@@ -258,7 +258,9 @@ func Action(actionname string, param map[string]interface{}) TableEntryOptions {
 		if err != nil {
 			return err
 		}
-		te.Action.Type = &v1.TableAction_Action{Action: action}
+		te.Action = &v1.TableAction{
+			Type: &v1.TableAction_Action{Action: action},
+		}
 		return nil
 	}
 }
@@ -287,8 +289,7 @@ func (pih *P4InfoHelper) BuildTableEntry(
 
 	//execute setting Option argument when exist Option Parameter in table entry struct
 	for _, o := range options {
-		err = o(te, pih)
-		if err != nil {
+		if err := o(te, pih); err != nil {
 			return nil, err
 		}
 	}
