@@ -227,7 +227,7 @@ type isEntryMatchFieldType interface {
 }
 
 type EntryMatchFieldExact struct {
-	Value0 uint32
+	Value0 int32
 }
 
 type EntryMatchFieldLpm struct {

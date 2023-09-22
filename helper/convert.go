@@ -120,8 +120,8 @@ func encode(data interface{}, bitwidth int32) ([]byte, error) {
 		} else {
 			encodedbytes = []byte(v)
 		}
-	case int:
-		encodedbytes, err = encodeNum(int32(v), bitwidth)
+	case int32:
+		encodedbytes, err = encodeNum(v, bitwidth)
 		if err != nil {
 			return nil, err
 		}

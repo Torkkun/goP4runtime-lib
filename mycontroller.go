@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-var SWITCH_TO_HOST_PORT = 1
-var SWITCH_TO_SWITCH_PORT = 2
+var SWITCH_TO_HOST_PORT = int32(1)
+var SWITCH_TO_SWITCH_PORT = int32(2)
 
 func main() {
 	p4ipath := flag.String(
@@ -110,7 +110,7 @@ func writeTunnelRules(
 	p4ih *helper.P4InfoHelper,
 	ingresssw *simpleswitch.SwitchConnection,
 	egresssw *simpleswitch.SwitchConnection,
-	tunid uint32, dstethaddr,
+	tunid int32, dstethaddr,
 	dstipaddr string,
 ) {
 	//Tunnel Ingress Rule
@@ -148,7 +148,7 @@ func writeTunnelRules(
 		helper.Action(
 			"MyIngress.myTunnel_forward",
 			map[string]interface{}{
-				"port": uint32(SWITCH_TO_SWITCH_PORT),
+				"port": SWITCH_TO_SWITCH_PORT,
 			},
 		),
 	)
@@ -170,7 +170,7 @@ func writeTunnelRules(
 			"MyIngress.myTunnel_egress",
 			map[string]interface{}{
 				"dstAddr": dstethaddr,
-				"port":    uint32(SWITCH_TO_HOST_PORT),
+				"port":    SWITCH_TO_HOST_PORT,
 			},
 		),
 	)
