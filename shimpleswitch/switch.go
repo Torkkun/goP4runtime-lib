@@ -132,8 +132,10 @@ func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
 	} else {
 		newupdate.Type = v1.Update_INSERT
 	}
-	newupdate.Entity.Entity = &v1.Entity_TableEntry{
-		TableEntry: te,
+	newupdate.Entity = &v1.Entity{
+		Entity: &v1.Entity_TableEntry{
+			TableEntry: te,
+		},
 	}
 	request := &v1.WriteRequest{
 		DeviceId: swcon.DeviceId,
@@ -148,17 +150,17 @@ func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
 func (swcon *SwitchConnection) ReadTableEntry(tid uint32) (*v1.ReadResponse, error) {
 	te := new(v1.TableEntry)
 	te.TableId = tid
-	reqest := &v1.ReadRequest{
-		DeviceId: swcon.DeviceId,
-		Entities: []*v1.Entity{
+	request := new(v1.ReadRequest)
+	request.DeviceId = swcon.DeviceId
+	request.Entities =
+		[]*v1.Entity{
 			{
 				Entity: &v1.Entity_TableEntry{
 					TableEntry: te,
 				},
 			},
-		},
-	}
-	cl, err := swcon.Client.Read(context.Background(), reqest)
+		}
+	cl, err := swcon.Client.Read(context.Background(), request)
 	if err != nil {
 		return nil, err
 	}
@@ -166,17 +168,20 @@ func (swcon *SwitchConnection) ReadTableEntry(tid uint32) (*v1.ReadResponse, err
 }
 
 func (swcon *SwitchConnection) ReadCouter(cnterid uint32, index int64) (*v1.ReadResponse, error) {
-	request := new(v1.ReadRequest)
-	request.DeviceId = swcon.DeviceId
 	cnte := new(v1.CounterEntry)
 	cnte.CounterId = cnterid
-	cnte.Index.Index = index
-	request.Entities = append(
-		request.Entities,
-		&v1.Entity{
+	cnte.Index = &v1.Index{
+		Index: index,
+	}
+	request := new(v1.ReadRequest)
+	request.DeviceId = swcon.DeviceId
+	request.Entities = []*v1.Entity{
+		{
 			Entity: &v1.Entity_CounterEntry{
 				CounterEntry: cnte,
-			}})
+			},
+		},
+	}
 	cl, err := swcon.Client.Read(context.Background(), request)
 	if err != nil {
 		return nil, err
