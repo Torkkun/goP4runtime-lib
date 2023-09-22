@@ -82,7 +82,7 @@ func main() {
 
 	go func() {
 		for {
-			time.Sleep(time.Duration(2))
+			time.Sleep(time.Second * 2)
 			fmt.Println("\n----- Reading tunnel counters -----")
 			if err := printCounter(p4ih, s1, "MyIngress.ingressTunnelCounter", 100); err != nil {
 				log.Println(err)
@@ -245,7 +245,7 @@ func printCounter(
 	}
 	for _, entt := range resp.Entities {
 		cnte := entt.GetCounterEntry()
-		fmt.Printf("%s %s %d: %d packets (%d bytes)",
+		fmt.Printf("%s %s %d: %d packets (%d bytes)\n",
 			sw.Name, cntername, index,
 			cnte.Data.PacketCount, cnte.Data.ByteCount)
 	}
