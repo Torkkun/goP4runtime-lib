@@ -126,9 +126,6 @@ func (swcon *SwitchConnection) SetForwardingPipelineConfig(p4info *v1conf.P4Info
 }
 
 func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
-	request := new(v1.WriteRequest)
-	request.DeviceId = swcon.DeviceId
-	request.ElectionId.Low = 1
 	newupdate := new(v1.Update)
 	if te.IsDefaultAction {
 		newupdate.Type = v1.Update_MODIFY
@@ -138,22 +135,29 @@ func (swcon *SwitchConnection) WriteTableEntry(te *v1.TableEntry) {
 	newupdate.Entity.Entity = &v1.Entity_TableEntry{
 		TableEntry: te,
 	}
-	request.Updates = append(request.Updates, newupdate)
+	request := &v1.WriteRequest{
+		DeviceId: swcon.DeviceId,
+		ElectionId: &v1.Uint128{
+			Low: 1,
+		},
+		Updates: []*v1.Update{newupdate},
+	}
 	swcon.Client.Write(context.Background(), request)
 }
 
 func (swcon *SwitchConnection) ReadTableEntry(tid uint32) (*v1.ReadResponse, error) {
-	reqest := new(v1.ReadRequest)
-	reqest.DeviceId = swcon.DeviceId
 	te := new(v1.TableEntry)
 	te.TableId = tid
-	reqest.Entities = append(
-		reqest.Entities,
-		&v1.Entity{
-			Entity: &v1.Entity_TableEntry{
-				TableEntry: te,
+	reqest := &v1.ReadRequest{
+		DeviceId: swcon.DeviceId,
+		Entities: []*v1.Entity{
+			{
+				Entity: &v1.Entity_TableEntry{
+					TableEntry: te,
+				},
 			},
-		})
+		},
+	}
 	cl, err := swcon.Client.Read(context.Background(), reqest)
 	if err != nil {
 		return nil, err
